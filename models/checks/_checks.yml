@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: daily_totals
+    description: Level 1. Row count and total amount per source per day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [source, record_date]
+  - name: recon_daily
+    description: Level 1 comparison of each source against the reference, per day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [source, check_date]
+    columns:
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["match", "break"]
+  - name: recon_exceptions
+    description: Level 2. The individual records behind a break, with the reason.
+    columns:
+      - name: reason
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["missing_record", "duplicate_record", "wrong_date", "null_amount", "amount_mismatch"]
+  - name: check_results
+    description: One row per source per day with status, differences and the reasons found.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [source, check_date]

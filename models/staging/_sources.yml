@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Three invented source extracts written by scripts/generate_data.py.
+    meta:
+      external_location: "read_csv('data/raw/{name}.csv', header = true, all_varchar = true)"
+    tables:
+      - name: transactions
+        description: The transaction system. Treated as the reference the other two must agree with.
+      - name: client_feed
+        description: A file feed that should carry every transaction once.
+      - name: billing
+        description: The billing database. It should bill every transaction once, on its own date.

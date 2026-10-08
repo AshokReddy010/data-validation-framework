@@ -1,0 +1,21 @@
+name: data_validation
+version: "1.0.0"
+config-version: 2
+profile: data_validation
+
+model-paths: ["models"]
+test-paths: ["tests_dbt"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Totals may differ by this much before a day counts as a break.
+  amount_tolerance: 0.01
+
+models:
+  data_validation:
+    staging:
+      +materialized: view
+    checks:
+      +materialized: table

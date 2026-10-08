@@ -1,0 +1,7 @@
+data_validation:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: validation.duckdb
+      threads: 1

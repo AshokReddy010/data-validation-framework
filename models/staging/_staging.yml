@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: One row per transaction in the reference system.
+    columns:
+      - name: txn_id
+        data_tests: [unique, not_null]
+      - name: record_date
+        data_tests: [not_null]
+      - name: amount
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["settled"]
+  - name: stg_client_feed
+    description: One row per record in the client file feed. Blank amounts become null.
+    columns:
+      - name: txn_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_transactions')
+                field: txn_id
+      - name: record_date
+        data_tests: [not_null]
+  - name: stg_billing
+    description: One row per billing line.
+    columns:
+      - name: billing_id
+        data_tests: [unique, not_null]
+      - name: txn_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_transactions')
+                field: txn_id
+      - name: record_date
+        data_tests: [not_null]

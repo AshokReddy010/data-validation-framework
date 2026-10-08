@@ -1,0 +1,24 @@
+name: Scheduled validation
+
+on:
+  schedule:
+    - cron: "0 11 * * *"   # every day at 11:00 UTC
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Run the checks and write the report
+        run: python scripts/run_checks.py
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-report
+          path: reports/
