@@ -4,7 +4,7 @@ sources:
   - name: raw
     description: Three invented source extracts written by scripts/generate_data.py.
     meta:
-      external_location: "read_csv('data/raw/{name}.csv', header = true, all_varchar = true)"
+      external_location: "read_csv('{{ env_var('DV_RAW_DIR', 'data/raw') }}/{name}.csv', header = true, all_varchar = true)"
     tables:
       - name: transactions
         description: The transaction system. Treated as the reference the other two must agree with.

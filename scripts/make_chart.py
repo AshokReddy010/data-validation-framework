@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -15,7 +16,7 @@ LABELS = {"client_feed": "Client file feed", "billing": "Billing database"}
 def main():
     results = pd.read_csv(ROOT / "reports" / "check_results.csv", parse_dates=["check_date"])
     figure, axes = plt.subplots(2, 1, figsize=(9, 5.2), sharex=True)
-    for axis, source in zip(axes, ["client_feed", "billing"]):
+    for axis, source in zip(axes, ["client_feed", "billing"], strict=True):
         part = results[results["source"] == source]
         axis.axhline(0, color="#8A8F98", linewidth=0.8)
         axis.bar(part["check_date"], part["amount_diff"] / 1000, width=0.8, color=COLOURS[source])

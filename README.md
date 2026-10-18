@@ -6,6 +6,8 @@ Three systems hold the same transactions: the transaction system, a client file 
 
 It is a public example of the kind of reconciliation checks I build at work. All data here is invented, and no employer code, data or business rule is used.
 
+**▶ [Live reconciliation console](https://ashokreddy010.github.io/data-validation-framework/)**: every morning a scheduled job rebuilds the last 60 days of all three systems, injects random faults the checks are not told about (dropped and duplicated records, changed and blank amounts, a missing day, records filed a day late), runs the dbt checks, and scores them: every fault caught with the right reason, and no false alarms. Faults are seeded by date, so a day's faults are reproducible (`python scripts/live.py --end 2026-10-17`). `unit_tests/test_live.py` holds the checks to a perfect score on two windows.
+
 ## What it found
 
 The data generator plants six errors in 60 days of invented transactions. The checks found all six, gave the right reason for each, and raised nothing on the 113 clean source-days.

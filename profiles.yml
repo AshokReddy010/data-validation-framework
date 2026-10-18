@@ -3,5 +3,5 @@ data_validation:
   outputs:
     dev:
       type: duckdb
-      path: validation.duckdb
+      path: "{{ env_var('DV_DB', 'validation.duckdb') }}"
       threads: 1

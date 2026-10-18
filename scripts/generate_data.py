@@ -25,15 +25,15 @@ PLANTED = [
 ]
 
 
-def build(seed=7):
+def build(seed=7, start=START, days=DAYS, planted=PLANTED, per_day=PER_DAY):
     rng = random.Random(seed)
     transactions, feed, billing = [], [], []
     txn_no = 0
     bill_no = 0
-    for offset in range(DAYS):
-        day = START + timedelta(days=offset)
+    for offset in range(days):
+        day = start + timedelta(days=offset)
         todays = []
-        for _ in range(PER_DAY):
+        for _ in range(per_day):
             txn_no += 1
             todays.append({
                 "txn_id": f"T{txn_no:06d}",
@@ -43,18 +43,11 @@ def build(seed=7):
                 "status": "settled",
             })
         transactions.extend(todays)
-        plants = {(src, kind): n for d, src, kind, n in PLANTED if d == day}
+        plants = {(src, kind): n for d, src, kind, n in planted if d == day}
 
         feed_rows = [{"record_id": t["txn_id"], "account": t["account_id"],
                       "trade_date": t["txn_date"], "amount": t["amount"]} for t in todays]
-        if ("client_feed", "missing_records") in plants:
-            feed_rows = feed_rows[:-plants[("client_feed", "missing_records")]]
-        if ("client_feed", "amount_mismatch") in plants:
-            for row in feed_rows[:plants[("client_feed", "amount_mismatch")]]:
-                row["amount"] = round(row["amount"] + 100.0, 2)
-        if ("client_feed", "null_amount") in plants:
-            for row in feed_rows[:plants[("client_feed", "null_amount")]]:
-                row["amount"] = ""
+        feed_rows = _apply(feed_rows, plants, "client_feed", "amount", day)
         feed.extend(feed_rows)
 
         if ("billing", "missing_day") in plants:
@@ -68,12 +61,30 @@ def build(seed=7):
             for row in bill_rows[:plants[("billing", "duplicate_records")]]:
                 bill_no += 1
                 bill_rows.append({**row, "billing_id": f"B{bill_no:06d}"})
-        if ("billing", "wrong_date") in plants:
-            next_day = (day + timedelta(days=1)).isoformat()
-            for row in bill_rows[:plants[("billing", "wrong_date")]]:
-                row["bill_date"] = next_day
+        bill_rows = _apply(bill_rows, {k: v for k, v in plants.items() if k[1] != "duplicate_records"},
+                           "billing", "billed_amount", day, date_field="bill_date")
         billing.extend(bill_rows)
     return transactions, feed, billing
+
+
+def _apply(rows, plants, source, amount_field, day, date_field=None):
+    """Apply one source's planted faults to a day's rows (duplicates for billing are handled by the caller,
+    because billing rows carry their own id)."""
+    if (source, "missing_records") in plants:
+        rows = rows[:-plants[(source, "missing_records")]]
+    if (source, "duplicate_records") in plants:
+        rows = rows + [dict(r) for r in rows[:plants[(source, "duplicate_records")]]]
+    if (source, "amount_mismatch") in plants:
+        for row in rows[:plants[(source, "amount_mismatch")]]:
+            row[amount_field] = round(row[amount_field] + 100.0, 2)
+    if (source, "null_amount") in plants:
+        for row in rows[:plants[(source, "null_amount")]]:
+            row[amount_field] = ""
+    if (source, "wrong_date") in plants and date_field:
+        next_day = (day + timedelta(days=1)).isoformat()
+        for row in rows[:plants[(source, "wrong_date")]]:
+            row[date_field] = next_day
+    return rows
 
 
 def write(rows, path):

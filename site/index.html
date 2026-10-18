@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reconciliation Console</title>
+<meta name="description" content="Live demo of a two-level data reconciliation framework: three simulated systems, random faults injected daily, and dbt checks that must find every one with the right reason.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f4f6f8; --panel: #ffffff; --ink: #0e1a2b; --muted: #5a6677; --line: #dbe1e8; --soft: #ebeff3;
+  --match: #c9d6cf; --brk: #c24b2b; --brk-soft: #f8e4de; --ok: #2e7d5b; --ok-soft: #e0f1e8; --inj: #d18a00; --focus: #2457d6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c131d; --panel: #121c29; --ink: #e6ecf3; --muted: #95a3b6; --line: #243244; --soft: #182434;
+    --match: #2a4038; --brk: #ef7a5a; --brk-soft: #3a1f17; --ok: #55c590; --ok-soft: #14301f; --inj: #f2b443; --focus: #7ea3ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c131d; --panel: #121c29; --ink: #e6ecf3; --muted: #95a3b6; --line: #243244; --soft: #182434;
+  --match: #2a4038; --brk: #ef7a5a; --brk-soft: #3a1f17; --ok: #55c590; --ok-soft: #14301f; --inj: #f2b443; --focus: #7ea3ff; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 Barlow, system-ui, -apple-system, "Segoe UI", sans-serif; padding: 0 16px 60px; }
+.wrap { max-width: 1100px; margin: 0 auto; }
+a { color: inherit; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.num, .cond { font-family: "Barlow Semi Condensed", Barlow, sans-serif; font-variant-numeric: tabular-nums; }
+header { padding-block: 40px 22px; display: grid; gap: 12px; }
+h1 { margin: 0; font-size: clamp(1.9rem, 4.5vw, 2.8rem); line-height: 1.08; font-weight: 700; letter-spacing: -0.015em; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; }
+.score { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 10px; }
+.score div { background: var(--panel); padding: 14px 16px; display: grid; }
+.score b { font-size: 2rem; line-height: 1.1; font-weight: 700; }
+.score span { color: var(--muted); font-size: 14px; }
+.score .good b { color: var(--ok); } .score .bad b { color: var(--brk); }
+@media (max-width: 640px) { .score { grid-template-columns: 1fr 1fr; } }
+section { margin-top: 36px; }
+h2 { font-size: 1.4rem; margin: 0 0 6px; font-weight: 700; }
+.sub { margin: 0 0 16px; color: var(--muted); max-width: 72ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.cal { overflow-x: auto; padding-bottom: 4px; }
+.cal-grid { display: grid; grid-template-columns: 92px repeat(60, minmax(12px, 1fr)); gap: 3px; min-width: 760px; align-items: center; }
+.cal-grid .lab { font-weight: 600; font-size: 14px; }
+.cal-grid .mon { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: visible; height: 16px; }
+.cell { all: unset; position: relative; height: 30px; border-radius: 3px; background: var(--match); cursor: pointer; }
+.cell.break { background: var(--brk); }
+.cell.inj::after { content: ""; position: absolute; left: 50%; top: -6px; width: 6px; height: 6px; border-radius: 50%; background: var(--inj); transform: translateX(-50%); }
+.cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cell:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.cell.bad { background: repeating-linear-gradient(45deg, var(--brk), var(--brk) 3px, var(--ink) 3px, var(--ink) 6px); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; margin-top: 12px; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 16px; }
+@media (max-width: 760px) { .detail { grid-template-columns: minmax(0, 1fr); } }
+.side h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: 0.02em; }
+.side p { margin: 0 0 6px; }
+.big { font-size: 1.35rem; font-weight: 700; }
+.verdict { display: inline-block; font-weight: 700; font-size: 14px; padding: 2px 10px; border-radius: 999px; }
+.verdict.caught, .verdict.clean { background: var(--ok-soft); color: var(--ok); }
+.verdict.missed, .verdict.wrong_reason, .verdict.false_alarm { background: var(--brk-soft); color: var(--brk); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
+td.r, th.r { text-align: right; }
+.levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .levels { grid-template-columns: minmax(0, 1fr); } }
+.levels div h3 { margin: 0 0 4px; font-size: 16px; }
+.levels div p { margin: 0; color: var(--muted); font-size: 15px; }
+footer { margin-top: 40px; color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+footer p { margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Reconciliation Console</h1>
+    <p class="lede">Three systems should hold the same transactions: a transaction system, a client file feed and a billing database. Every morning a simulator rebuilds the last 60 days of all three and quietly breaks a few of them: drops records, bills some twice, changes or blanks amounts, files records a day late. The dbt checks are never told what was broken. This page shows whether they found it.</p>
+    <div class="score" id="score"></div>
+  </header>
+
+  <main>
+    <section aria-labelledby="cal-h">
+      <h2 id="cal-h">Sixty days, two feeds</h2>
+      <p class="sub" id="cal-sub">Each square is one feed on one day, compared with the transaction system. Select a square to see what was injected, what the checks reported and the records behind it.</p>
+      <div class="panel">
+        <div class="cal"><div class="cal-grid" id="cal" role="grid" aria-label="Daily reconciliation results"></div></div>
+        <div class="legend"><span><i style="background:var(--match)"></i>Reconciled</span><span><i style="background:var(--brk)"></i>Break found</span><span><i style="background:var(--inj);border-radius:50%;width:8px;height:8px"></i>A fault was injected</span><span><i style="background:repeating-linear-gradient(45deg,var(--brk),var(--brk) 3px,var(--ink) 3px,var(--ink) 6px)"></i>Checks disagreed with the injection</span></div>
+        <div class="detail" id="detail"></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="how-h">
+      <h2 id="how-h">How the checks work</h2>
+      <div class="levels">
+        <div><h3>Level 1: totals</h3><p>Count rows and sum amounts per source per day, and compare each feed with the transaction system. Most days end here with one cheap comparison.</p></div>
+        <div><h3>Level 2: records</h3><p>Only for days that break: join record by record and name the reason (missing, duplicate, wrong date, blank amount or different amount).</p></div>
+        <div><h3>Guard tests</h3><p>dbt tests fail the run if a break has no record-level reason, or if a matching day still hides exceptions (two errors cancelling out in the totals).</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p id="gen"></p>
+    <p>All data is simulated; no real or employer data is used. <a href="https://github.com/AshokReddy010/data-validation-framework">Code, dbt models and tests on GitHub</a>.</p>
+  </footer>
+</div>
+<script>
+const BASE = new URLSearchParams(location.search).get("base") || "https://raw.githubusercontent.com/AshokReddy010/data-validation-framework/main/site/data/";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SRC = { client_feed: "Client feed", billing: "Billing" };
+const KIND = { missing_records: "records dropped", duplicate_records: "records duplicated", amount_mismatch: "amounts changed by $100",
+  null_amount: "amounts blanked", missing_day: "the whole day missing", wrong_date: "records filed a day late", "wrong_date (spill-over)": "late records landing here" };
+const REASON = { missing_record: "missing", duplicate_record: "duplicate", amount_mismatch: "different amount", null_amount: "blank amount", wrong_date: "wrong date" };
+const VERDICT = { caught: "Caught, right reason", clean: "Clean, no alarm", missed: "Missed", wrong_reason: "Wrong reason", false_alarm: "False alarm" };
+const money = (x) => (x < 0 ? "−$" : "+$") + Math.abs(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (iso, o) => new Date(iso + "T12:00:00").toLocaleDateString("en-US", o || { weekday: "short", month: "short", day: "numeric" });
+let S = null, sel = null;
+
+function detail(key) {
+  const d = S.days.find((x) => `${x.day}|${x.source}` === key);
+  if (!d) return;
+  sel = key;
+  document.querySelectorAll(".cell").forEach((c) => c.classList.toggle("sel", c.dataset.k === key));
+  const inj = d.injected ? `<p class="big">${d.injected.records.toLocaleString()} ${esc(KIND[d.injected.kind] || d.injected.kind)}</p>` : `<p class="big">Nothing</p>`;
+  const found = Object.keys(d.found).length ? Object.entries(d.found).map(([r, n]) => `${n.toLocaleString()} × ${esc(REASON[r] || r)}`).join(", ") : "no exceptions";
+  $("#detail").innerHTML = `<div class="side"><h3>${fmt(d.day, { weekday: "long", month: "long", day: "numeric" })} · ${SRC[d.source]}</h3>
+      <p><span class="verdict ${d.verdict}">${VERDICT[d.verdict]}</span></p>
+      <h3 style="margin-top:14px">Injected by the simulator</h3>${inj}
+      <h3 style="margin-top:14px">Reported by the checks</h3>
+      <p class="big">${d.status === "break" ? "Break" : "Reconciled"}</p>
+      <p class="num">Rows ${d.count_diff >= 0 ? "+" : ""}${d.count_diff} · amount ${money(d.amount_diff)}</p><p>${esc(found)}</p></div>
+    <div class="side"><h3>Records behind it</h3>${d.samples.length ? `<table><thead><tr><th>Transaction</th><th>Reason</th><th class="r">Expected</th><th class="r">In feed</th></tr></thead><tbody>
+      ${d.samples.map(([t, r, e, a]) => `<tr><td class="num">${esc(t)}</td><td>${esc(REASON[r] || r)}</td><td class="r num">${e == null ? "–" : e.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td><td class="r num">${a == null ? "–" : a.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>`).join("")}</tbody></table>
+      <p style="color:var(--muted);font-size:13px;margin-top:6px">First ${d.samples.length} of ${Object.values(d.found).reduce((a, b) => a + b, 0).toLocaleString()} exception records.</p>` : `<p style="color:var(--muted)">No exception records: level 1 totals matched, so level 2 had nothing to explain.</p>`}</div>`;
+}
+
+function render() {
+  const s = S.score;
+  $("#score").innerHTML = [
+    ["", s.injected, "faults injected in the window"], [s.caught === s.injected ? "good" : "bad", s.caught, "caught with the right reason"],
+    [s.false_alarms ? "bad" : "good", s.false_alarms, "false alarms"], ["", s.source_days, "feed-days checked"],
+  ].map(([c, b, t]) => `<div class="${c}"><b class="num">${b}</b><span>${t}</span></div>`).join("");
+  const days = [...new Set(S.days.map((d) => d.day))].sort();
+  const by = Object.fromEntries(S.days.map((d) => [`${d.day}|${d.source}`, d]));
+  let html = `<span></span>` + days.map((d, i) => `<span class="mon cond">${i === 0 || d.slice(8) === "01" ? fmt(d, { month: "short", day: "numeric" }) : ""}</span>`).join("");
+  for (const src of ["client_feed", "billing"]) {
+    html += `<span class="lab">${SRC[src]}</span>` + days.map((d) => { const x = by[`${d}|${src}`]; if (!x) return "<span></span>";
+      const bad = ["missed", "wrong_reason", "false_alarm"].includes(x.verdict);
+      return `<button class="cell ${x.status === "break" ? "break" : ""} ${x.injected ? "inj" : ""} ${bad ? "bad" : ""}" data-k="${d}|${src}" aria-label="${SRC[src]} ${fmt(d)}: ${x.status}${x.injected ? ", fault injected" : ""}"></button>`; }).join("");
+  }
+  $("#cal").innerHTML = html;
+  $("#cal").querySelectorAll(".cell").forEach((c) => c.onclick = () => detail(c.dataset.k));
+  $("#cal-sub").textContent = `${fmt(S.window[0], { month: "long", day: "numeric" })} to ${fmt(S.window[1], { month: "long", day: "numeric", year: "numeric" })}, ${S.records_per_day} transactions a day. Select a square to see what was injected, what the checks reported and the records behind it.`;
+  const first = S.days.filter((d) => d.injected).pop() || S.days[S.days.length - 1];
+  detail(`${first.day}|${first.source}`);
+  $("#gen").textContent = `Rebuilt and checked ${new Date(S.generated_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`;
+}
+
+fetch(BASE + "status.json?t=" + Math.floor(Date.now() / 600000), { cache: "no-store" })
+  .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+  .then((j) => { S = j; render(); })
+  .catch((e) => { $("#score").innerHTML = `<div><span>The first daily run has not published results yet (${esc(e.message)}).</span></div>`; });
+</script>
+</body>
+</html>

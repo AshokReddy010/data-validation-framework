@@ -8,3 +8,8 @@ dbt_packages/
 data/raw/
 __pycache__/
 .pytest_cache/
+data/live/
+live.duckdb
+live.duckdb.wal
+target_live/
+__pycache__/
